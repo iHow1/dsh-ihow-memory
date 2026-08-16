@@ -34,6 +34,7 @@
     "bin/",
     "lib/",
     "cordis.patch.yml",
+    "DEMO.md",
     "LICENSE",
     "README.md",
     "README.zh-CN.md"
@@ -45,7 +46,9 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "verify": "npm test && node scripts/verify-package.mjs",
+    "demo:cross-session": "node scripts/cross-session-demo.mjs",
+    "demo:dsh-host": "node scripts/dsh-cross-session-demo.mjs",
+    "verify": "npm test && npm run demo:cross-session && node scripts/verify-package.mjs",
     "prepack": "npm run verify"
   },
   "dependencies": {

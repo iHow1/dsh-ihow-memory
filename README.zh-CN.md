@@ -64,7 +64,17 @@ DSH 的索引状态位于：
 
 ## 验证
 
-让 DSH 调用记忆状态，搜索一条已知事实，写入一个低风险候选，再开启新会话搜索同一事实。完整 verify-first 接班路径应调用 `memory.continue`，并在行动前核对返回的实时锚点。
+要获得确定性的持久化验收结果，可运行随包提供的 Core 流程：
+
+```sh
+npm run demo:cross-session
+```
+
+脚本会写入随机 marker，在新进程中搜索，执行 forget，在再次重启后确认 marker 隐藏，再执行 remember，并确认它恢复可搜索。完整 DSH Host 流程通过官方 DSH 工具注册表执行，详见 [DEMO.md](DEMO.md)。
+
+手动验证时，让 DSH 调用记忆状态，搜索一条已知事实，写入一个低风险候选，再开启新会话搜索同一事实。完整 verify-first 接班路径应调用 `memory.continue`，并在行动前核对返回的实时锚点。
+
+需要保留 Host 验收回执时，设置 `DEMO_RECEIPT_PATH`，脚本会写出 JSON 结果；临时记忆空间仍会在断言结束后删除。
 
 ## 更新与卸载
 

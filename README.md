@@ -64,7 +64,17 @@ When `MEMORY_ROOT` points at an existing shared memory directory, keep `IHOW_MEM
 
 ## Verify
 
-Ask DSH to call memory status, search a known fact, write a low-risk candidate, start a new session, and search for the same fact. For the full verify-first handoff path, call `memory.continue` and validate the returned live anchors before acting on its narrative.
+For a deterministic persistence receipt, run the bundled Core flow:
+
+```sh
+npm run demo:cross-session
+```
+
+It writes a random marker, searches it from a new process, forgets it, verifies it is hidden after another restart, restores it, and verifies it is searchable again. The full DSH Host flow uses the official DSH tool registry and is documented in [DEMO.md](DEMO.md).
+
+For the manual flow, ask DSH to call memory status, search a known fact, write a low-risk candidate, start a new session, and search for the same fact. For the full verify-first handoff path, call `memory.continue` and validate the returned live anchors before acting on its narrative.
+
+Set `DEMO_RECEIPT_PATH` to retain the Host result as JSON; the temporary memory space is still removed after the assertions complete.
 
 ## Update and remove
 
