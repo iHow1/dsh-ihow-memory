@@ -1,0 +1,7 @@
+# Mount the portable iHow Memory Host plugin. The package entrypoint
+# resolves its own launcher with import.meta.url.
+- insert:
+    - id: ihow-memory
+      name: dsh-ihow-memory
+      config:
+        failOnStartupError: true

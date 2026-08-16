@@ -1,0 +1,92 @@
+# dsh-ihow-memory
+
+Install [iHow Memory](https://github.com/iHow1/ihow-memory-core) as a local-first shared memory plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
+
+The package is a thin DSH bundle. It mounts DSH's MCP client and starts an exact `ihow-memory` Core dependency from the plugin installation. It does not require a global iHow Memory binary and does not duplicate Core storage or governance logic.
+
+## Status
+
+Alpha. The package targets DSH `0.1.0-rc.6` and iHow Memory Core `0.1.0-alpha.31.2`.
+
+## Core and plugin lifecycle
+
+`ihow-memory` is the Core package: it owns storage, retrieval, governance, and the MCP contract. `dsh-ihow-memory` is only the DSH adapter and distribution bundle. Installing this plugin does not replace a global `ihow-memory` command or modify another runtime's adapter.
+
+The plugin pins an exact Core version so an existing DSH installation cannot change behavior when Core publishes a new release. The two packages therefore use independent versions:
+
+- A Core release does not automatically require a plugin release.
+- Release a new plugin when the pinned Core must move for a compatible feature or security fix, when the MCP contract changes, or when DSH integration changes.
+- Test the pinned Core through DSH before each plugin release; do not widen the Core dependency range.
+
+Runtimes share durable memory only when they intentionally use the same `MEMORY_ROOT` or `IHOW_MEMORY_ROOT`. DSH keeps its index and runtime state under its own `IHOW_MEMORY_STATE_ROOT`, so shared memory does not imply shared mutable runtime state.
+
+## Install
+
+```sh
+dsh plugin --profile web add dsh-ihow-memory@next
+dsh web
+```
+
+For Headless:
+
+```sh
+dsh plugin --profile headless add dsh-ihow-memory@next
+dsh --profile headless "Check memory status"
+```
+
+Restart the selected DSH profile after installation. The agent receives iHow Memory tools under DSH's stable `mcp__ihow-memory__...` namespace.
+
+## Storage
+
+By default the plugin uses iHow Memory's managed local storage:
+
+```text
+~/.ihow-memory/<workspace>-<hash>/
+```
+
+It keeps DSH index state under:
+
+```text
+~/.ihow-memory/.state/dsh/
+```
+
+The active DSH workspace determines the managed memory space. Set these environment variables before starting DSH to override the defaults:
+
+| Variable | Purpose |
+|---|---|
+| `IHOW_MEMORY_HOME` | Managed iHow Memory home directory |
+| `MEMORY_ROOT` or `IHOW_MEMORY_ROOT` | Existing shared memory directory |
+| `IHOW_MEMORY_STATE_ROOT` | Runtime index/state directory |
+| `IHOW_MEMORY_CWD` | Workspace identity override |
+| `IHOW_CAPTURE_FLOOR=0` | Disable the bounded startup capture sweep |
+
+When `MEMORY_ROOT` points at an existing shared memory directory, keep `IHOW_MEMORY_STATE_ROOT` writable and local. The plugin never deletes memory when it is uninstalled.
+
+## Verify
+
+Ask DSH to call memory status, search a known fact, write a low-risk candidate, start a new session, and search for the same fact. For the full verify-first handoff path, call `memory.continue` and validate the returned live anchors before acting on its narrative.
+
+## Update and remove
+
+```sh
+dsh plugin --profile web update dsh-ihow-memory
+dsh plugin --profile web remove dsh-ihow-memory
+```
+
+Removing the plugin removes the DSH bundle only. It does not remove `~/.ihow-memory` or a configured shared memory root.
+
+## Security
+
+The plugin spawns the bundled Core over stdio. It stores no model credentials and uses DSH's scrubbed child-process environment. Memory can contain sensitive project context; review candidates before promotion and never store secrets, tokens, private keys, passwords, or cookies.
+
+## Development
+
+```sh
+npm install
+npm run verify
+dsh plugin --profile web add "link:/absolute/path/to/dsh-ihow-memory"
+```
+
+## License
+
+Apache-2.0
