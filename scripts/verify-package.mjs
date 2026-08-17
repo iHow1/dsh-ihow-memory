@@ -13,7 +13,7 @@ const packed = JSON.parse(execFileSync('npm', ['pack', '--dry-run', '--json', '-
   encoding: 'utf8',
 }));
 const files = new Set(packed[0].files.map((entry) => entry.path));
-for (const required of ['package.json', 'cordis.patch.yml', 'lib/index.js', 'bin/ihow-memory-mcp.mjs', 'README.md', 'README.zh-CN.md', 'DEMO.md', 'LICENSE']) {
+for (const required of ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/storage-config.js', 'bin/ihow-memory-mcp.mjs', 'README.md', 'README.zh-CN.md', 'DEMO.md', 'LICENSE']) {
   assert.ok(files.has(required), `packed artifact missing ${required}`);
 }
 for (const forbidden of ['test/mcp.test.mjs', 'scripts/verify-package.mjs']) {

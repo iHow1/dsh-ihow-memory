@@ -1,34 +1,37 @@
-# Cross-session memory for DeepSeek Harness, with a reproducible Host-level receipt
+# DeepSeek Harness 也能接上 iHow Memory 长期记忆了
 
-I built `dsh-ihow-memory`, an Apache-2.0 DSH bundle that mounts iHow Memory Core as native `mcp__ihow-memory__...` tools. The package is intentionally thin: DSH owns the agent and tool registry, while Core owns durable storage, retrieval, governance, forget/remember, and the MCP contract.
+DeepSeek Harness 现在可以通过 Cordis 插件直接接入 iHow Memory，全程不修改 DSH 源码。
 
-The useful claim is not that another memory package exists. It is that the persistence boundary is reproducible through DSH's real Host:
+当前已验证的能力：
+
+- 任务开始时可通过 `memory.continue` 或 `memory.search` 主动召回相关历史；
+- 回合结束后可通过 `memory.write_candidate` 治理式写回新的决策、经验与交接；
+- 记忆保存在本机，支持多个已接入 iHow Memory 的 Runtime 显式共享同一记忆根；
+- 支持搜索、状态检查、候选写入、forget、remember 与可审计治理；
+- 可从已有 MCP 配置无损迁移到正式 DSH Bundle；
+- 完整流程通过真实 DeepSeek Harness Host 验收，不只是直连 MCP 的单元测试。
 
 ```text
-write through DSH tools in host A
-  -> dispose and rebuild the Host
-recall through DSH tools
-  -> dispose and rebuild the Host
-forget through DSH tools
-  -> dispose and rebuild the Host
-confirm hidden
-  -> remember through DSH tools
-  -> dispose and rebuild the Host
-confirm restored
+Host A 写入
+  -> 销毁并重建 Host
+Host B 召回
+  -> forget
+Host C 确认隐藏
+  -> remember
+Host D 确认恢复
 ```
 
-The demo fails on a missing namespaced tool, startup error, duplicate or missing search result, failed forget, failed remember, or failed persistence assertion. It uses a unique marker, temporary workspace, temporary memory root, lexical FTS, and no model/API key.
-
-Install the current preview into an isolated profile:
+安装预览版：
 
 ```sh
-DSH_HOME=/tmp/dsh-ihow-demo-home \
-  dsh plugin --profile headless add dsh-ihow-memory@next
+dsh plugin --profile web add dsh-ihow-memory@next
+dsh web
 ```
 
-Then run the Host flow documented in `DEMO.md`. Set `DEMO_RECEIPT_PATH=/tmp/dsh-ihow-receipt.json` to retain the JSON result for CI or review.
+如果已经有 iHow Memory MCP 配置，可在插件条目中显式填写原来的 `memoryRoot` 和 `stateRoot`，继续使用同一份记忆，不需要复制或重建数据。迁移步骤与可重复验收脚本见仓库 `DEMO.md`。
 
-Verified against a fresh install of `dsh-ihow-memory@0.1.0-alpha.1` on August 16, 2026. The run completed all six phases through `DeepSeek Harness` and produced `ok: true`.
+需要说明：当前 DSH 版本由模型调用原生记忆工具完成召回和治理式写回；自动 `pre-step` 注入和自动 turn-end capture 尚未作为已完成能力宣传。我们选择先把持久化边界、迁移安全和可验证性做实，再扩展自动生命周期。
 
-Repository: https://github.com/iHowAI/dsh-ihow-memory
-npm: https://www.npmjs.com/package/dsh-ihow-memory
+GitHub：https://github.com/iHow1/dsh-ihow-memory
+
+npm：https://www.npmjs.com/package/dsh-ihow-memory

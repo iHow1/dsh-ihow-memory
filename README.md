@@ -50,7 +50,17 @@ It keeps DSH index state under:
 ~/.ihow-memory/.state/dsh/
 ```
 
-The active DSH workspace determines the managed memory space. Set these environment variables before starting DSH to override the defaults:
+The active DSH workspace determines the managed memory space. For persistent profile configuration, override paths on the plugin row:
+
+```yaml
+- id: ihow-memory
+  config:
+    memoryRoot: /path/to/existing/memory
+    stateRoot: /path/to/writable/dsh-state
+    workspace: /path/to/workspace-identity
+```
+
+`home`, `memoryRoot`, `stateRoot`, and `workspace` accept absolute paths, relative paths, and `~/...`. Plugin fields take precedence over environment variables. Existing environment-based installs remain compatible:
 
 | Variable | Purpose |
 |---|---|
@@ -60,7 +70,7 @@ The active DSH workspace determines the managed memory space. Set these environm
 | `IHOW_MEMORY_CWD` | Workspace identity override |
 | `IHOW_CAPTURE_FLOOR=0` | Disable the bounded startup capture sweep |
 
-When `MEMORY_ROOT` points at an existing shared memory directory, keep `IHOW_MEMORY_STATE_ROOT` writable and local. The plugin never deletes memory when it is uninstalled.
+When migrating an existing MCP row, copy its `MEMORY_ROOT` to `memoryRoot` and `IHOW_MEMORY_STATE_ROOT` to `stateRoot` before removing the old row. Never run both rows against the same store. The plugin never deletes memory when it is updated or uninstalled.
 
 ## Verify
 

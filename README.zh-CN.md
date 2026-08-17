@@ -50,7 +50,17 @@ DSH 的索引状态位于：
 ~/.ihow-memory/.state/dsh/
 ```
 
-当前 DSH 工作区决定托管空间。启动 DSH 前可设置：
+当前 DSH 工作区决定托管空间。需要在 Profile 中持久配置路径时，覆盖插件条目：
+
+```yaml
+- id: ihow-memory
+  config:
+    memoryRoot: /path/to/existing/memory
+    stateRoot: /path/to/writable/dsh-state
+    workspace: /path/to/workspace-identity
+```
+
+`home`、`memoryRoot`、`stateRoot`、`workspace` 均支持绝对路径、相对路径和 `~/...`。插件字段优先于环境变量；原有环境变量配置继续兼容：
 
 | 环境变量 | 用途 |
 |---|---|
@@ -60,7 +70,7 @@ DSH 的索引状态位于：
 | `IHOW_MEMORY_CWD` | 覆盖工作区身份 |
 | `IHOW_CAPTURE_FLOOR=0` | 关闭有界启动捕获扫描 |
 
-若 `MEMORY_ROOT` 指向已有共享目录，应让 `IHOW_MEMORY_STATE_ROOT` 保持本机可写。卸载插件不会删除记忆。
+从已有 MCP 条目迁移时，先把原 `MEMORY_ROOT` 写入 `memoryRoot`，把 `IHOW_MEMORY_STATE_ROOT` 写入 `stateRoot`，再删除旧条目。禁止让新旧两个条目同时访问同一存储。更新或卸载插件不会删除记忆。
 
 ## 验证
 

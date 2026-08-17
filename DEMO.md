@@ -62,4 +62,19 @@ DSH_HOME=/tmp/dsh-ihow-demo-home dsh plugin --profile headless add dsh-ihow-memo
 
 Then point `DSH_PROFILE_DIR` at `/tmp/dsh-ihow-demo-home/profiles/headless` and run the Host command above. Restart the selected DSH profile after installation in normal use.
 
+## Migrate an existing MCP row
+
+Install the bundle, then replace the old generic MCP row with one plugin override. Preserve the exact storage paths:
+
+```yaml
+- id: ihow-memory
+  config:
+    memoryRoot: /path/from/old/MEMORY_ROOT
+    stateRoot: /path/from/old/IHOW_MEMORY_STATE_ROOT
+    workspace: /same/workspace/identity
+    failOnStartupError: true
+```
+
+Stop the old Host before starting the new composition. Do not run the generic MCP row and the bundle against the same writable state directory at once. Verify `memory.status`, search a known pre-migration marker, write a new low-risk marker, and recall both from a fresh Host before removing any backup.
+
 The flow uses lexical FTS by default. No API key, network service, embedding model, or existing memory is required.

@@ -34,15 +34,22 @@ let memoryPath;
 await mkdir(workspace, { recursive: true });
 await writeFile(configPath, '[]\n');
 
-process.env.IHOW_MEMORY_HOME = memoryHome;
-process.env.IHOW_MEMORY_STATE_ROOT = stateRoot;
-process.env.IHOW_MEMORY_CWD = workspace;
 process.env.IHOW_CAPTURE_FLOOR = '0';
 
 const patches = [{ insert: [
   { id: 'system-prompt', name: '@deepseek-ai/dsh-system-prompt', config: { persona: '' } },
   { id: 'tools', name: '@deepseek-ai/dsh-tools', config: { mode: 'native' } },
-  { id: 'ihow-memory', name: 'dsh-ihow-memory', config: { failOnStartupError: true } },
+  {
+    id: 'ihow-memory',
+    name: 'dsh-ihow-memory',
+    config: {
+      home: memoryHome,
+      memoryRoot: path.join(memoryHome, 'memory'),
+      stateRoot,
+      workspace,
+      failOnStartupError: true,
+    },
+  },
 ] }];
 
 async function runHostSession(name, callback) {
@@ -78,7 +85,7 @@ async function runHostSession(name, callback) {
 try {
   await runHostSession('write', async (call) => {
     const status = await call('memory.status', {});
-    assert.equal(status.workspace.mode, 'managed-space');
+    assert.equal(status.workspace.mode, 'existing-memory-root');
     assert.equal(status.provider.ready, true);
     assert.ok(status.capabilities.lexical, 'DSH demo requires local lexical retrieval');
 

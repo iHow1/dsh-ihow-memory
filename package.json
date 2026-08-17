@@ -1,6 +1,6 @@
 {
   "name": "dsh-ihow-memory",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "Install iHow Memory as a local-first shared memory plugin for DeepSeek Harness.",
   "type": "module",
   "license": "Apache-2.0",
