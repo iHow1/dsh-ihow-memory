@@ -31,10 +31,12 @@ node scripts/dsh-cross-session-demo.mjs
 
 Run the command with the same Node executable that launches DSH. The demo itself does not modify plugin configuration or introduce a second Node runtime.
 
-The Host command asserts that every phase goes through DSH's `mcp__ihow-memory__...` tool namespace:
+The Host command asserts that memory operations go through DSH's `mcp__ihow-memory__...` tool namespace and lifecycle operations go through the official Agent Host events:
 
 ```text
 write through DSH tools in host A
+  -> create and dispose a real DSH agent
+  -> verify session-start injection, hashed activation evidence, and one partial session-end checkpoint
   -> dispose and rebuild the Host
 recall through DSH tools
   -> dispose and rebuild the Host
@@ -46,7 +48,7 @@ confirm hidden
 confirm restored
 ```
 
-The command exits nonzero on a missing tool, failed startup, unexpected status, duplicate/missing result, or failed persistence assertion. It prints a JSON receipt containing only the random marker and temporary memory path.
+The command exits nonzero on a missing tool, failed startup, missing lifecycle injection/evidence/checkpoint, unexpected status, duplicate/missing result, or failed persistence assertion. It prints a JSON receipt containing the random marker, temporary memory path, and bounded lifecycle result.
 
 Set `DEMO_RECEIPT_PATH` to save the same JSON receipt to a file for CI or a release artifact. The temporary memory store is still removed after the assertions finish.
 

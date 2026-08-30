@@ -5,3 +5,4 @@
       name: dsh-ihow-memory
       config:
         failOnStartupError: true
+        space: main

@@ -6,7 +6,7 @@
 
 ## 状态
 
-Alpha。当前目标版本为 DSH `0.1.0-rc.6` 和 iHow Memory Core `0.1.0-alpha.31.2`。
+Alpha。当前候选面向 DSH 官方 `0.1.1-rc.2` 生命周期与 iHow Memory Core `0.1.0-alpha.33`。
 
 ## Core 与插件的版本关系
 
@@ -19,6 +19,15 @@ Alpha。当前目标版本为 DSH `0.1.0-rc.6` 和 iHow Memory Core `0.1.0-alpha
 - 每次插件发版前都必须通过 DSH 验证固定 Core；不要放宽 Core 依赖范围。
 
 只有主动配置相同的 `MEMORY_ROOT` 或 `IHOW_MEMORY_ROOT` 时，各 Runtime 才共享持久记忆。DSH 的索引和运行状态使用独立的 `IHOW_MEMORY_STATE_ROOT`，共享记忆不等于共享可变运行状态。
+
+Host 插件同时负责原生生命周期适配：
+
+- `agent/session-start` 注入有界的 verify-first 交接包。
+- 每轮第一次 `agent/pre-step` 执行相关性召回，只追加一条带身份的 `recall` 上下文消息。
+- 持久 `compaction/summary` 事件生成仅含元数据的压缩 checkpoint；不会把原始摘要或 transcript 内容复制到激活账本。
+- `agent/disposed` 会调度一次不完整覆盖的 session-end checkpoint 与生命周期完成证据；Host 插件关闭时会排空适配器已排队的写入。
+
+这些 Hook 对模型执行 fail open。激活证据是同一 OS 用户可重放的本地证据，因此 Core 只报告 `READY — WAITING FOR FIRST ACTIVITY` / `ACTIVATION_COMPLETION_UNATTESTED`，不声称经过宿主认证的 `ACTIVE`。
 
 ## 安装
 
@@ -58,9 +67,10 @@ DSH 的索引状态位于：
     memoryRoot: /path/to/existing/memory
     stateRoot: /path/to/writable/dsh-state
     workspace: /path/to/workspace-identity
+    space: main
 ```
 
-`home`、`memoryRoot`、`stateRoot`、`workspace` 均支持绝对路径、相对路径和 `~/...`。插件字段优先于环境变量；原有环境变量配置继续兼容：
+`home`、`memoryRoot`、`stateRoot`、`workspace` 与 `space` 均按适用情况支持绝对路径、相对路径和 `~/...`。`space` 让不同会话工作目录仍落在同一个 iHow Memory 逻辑 lane。插件字段优先于环境变量；原有环境变量配置继续兼容：
 
 | 环境变量 | 用途 |
 |---|---|
