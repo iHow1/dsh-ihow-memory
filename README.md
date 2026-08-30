@@ -6,7 +6,7 @@ The package is a thin DSH bundle. It mounts DSH's MCP client and starts an exact
 
 ## Status
 
-Alpha. The package targets DSH `0.1.0-rc.6` and iHow Memory Core `0.1.0-alpha.31.2`.
+Alpha. The current release candidate targets the official DSH `0.1.1-rc.2` lifecycle and iHow Memory Core `0.1.0-alpha.33`.
 
 ## Core and plugin lifecycle
 
@@ -19,6 +19,15 @@ The plugin pins an exact Core version so an existing DSH installation cannot cha
 - Test the pinned Core through DSH before each plugin release; do not widen the Core dependency range.
 
 Runtimes share durable memory only when they intentionally use the same `MEMORY_ROOT` or `IHOW_MEMORY_ROOT`. DSH keeps its index and runtime state under its own `IHOW_MEMORY_STATE_ROOT`, so shared memory does not imply shared mutable runtime state.
+
+The host plugin also owns the native lifecycle adapter:
+
+- `agent/session-start` injects the bounded verify-first handoff packet.
+- The first `agent/pre-step` in each turn performs relevant prompt recall and appends one identified `recall` context message.
+- Durable `compaction/summary` events create metadata-only pre-compact checkpoints; raw summaries and transcript bytes are never copied into the activation ledger.
+- `agent/disposed` schedules a partial session-end checkpoint and lifecycle completion; Host-plugin shutdown drains the adapter's queued writes.
+
+These hooks fail open for model execution. Activation evidence is local and replayable by the same OS user, so Core reports `READY — WAITING FOR FIRST ACTIVITY` / `ACTIVATION_COMPLETION_UNATTESTED`, not authenticated `ACTIVE`.
 
 ## Install
 
@@ -58,9 +67,10 @@ The active DSH workspace determines the managed memory space. For persistent pro
     memoryRoot: /path/to/existing/memory
     stateRoot: /path/to/writable/dsh-state
     workspace: /path/to/workspace-identity
+    space: main
 ```
 
-`home`, `memoryRoot`, `stateRoot`, and `workspace` accept absolute paths, relative paths, and `~/...`. Plugin fields take precedence over environment variables. Existing environment-based installs remain compatible:
+`home`, `memoryRoot`, `stateRoot`, `workspace`, and `space` accept absolute paths, relative paths, and `~/...` where applicable. `space` keeps DSH on the same logical iHow Memory lane across per-session working directories. Plugin fields take precedence over environment variables. Existing environment-based installs remain compatible:
 
 | Variable | Purpose |
 |---|---|

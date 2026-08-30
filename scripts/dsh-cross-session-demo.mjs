@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-
+import { pathToFileURL } from 'node:url';
 
 const profileDir = process.env.DSH_PROFILE_DIR;
 const dshPackageRoot = process.env.DSH_PACKAGE_ROOT;
@@ -21,6 +21,10 @@ const resolvedAppBootPath = appBootPath || path.join(
   dshPackageRoot,
   'node_modules/@deepseek-ai/dsh-app-boot/lib/index.js',
 );
+const { agentEvents } = await import(pathToFileURL(path.join(
+  profileDir,
+  'node_modules/@deepseek-ai/dsh-agent/lib/index.js',
+)).href);
 const { boot } = await import(pathToFileURL(resolvedAppBootPath).href);
 const root = await mkdtemp(path.join(os.tmpdir(), 'dsh-ihow-host-demo-'));
 const memoryHome = path.join(root, 'memory-home');
@@ -30,23 +34,39 @@ const configPath = path.join(root, 'cordis.yml');
 const marker = `DSH host cross-session marker ${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 let requestId = 0;
 let memoryPath;
+let startupSessionId;
+let resumedSessionId;
+let sessionStartInjected = false;
+let sessionEndCheckpointCount = 0;
 
 await mkdir(workspace, { recursive: true });
 await writeFile(configPath, '[]\n');
-
 process.env.IHOW_CAPTURE_FLOOR = '0';
 
 const patches = [{ insert: [
   { id: 'system-prompt', name: '@deepseek-ai/dsh-system-prompt', config: { persona: '' } },
   { id: 'tools', name: '@deepseek-ai/dsh-tools', config: { mode: 'native' } },
   {
+    id: 'rich-acp-demo',
+    name: path.join(profileDir, 'src/rich-acp-demo.js'),
+    config: {
+      provider: 'smoke',
+      model: 'smoke',
+      persistenceRoot: path.join(root, 'sessions'),
+      workspaceContext: false,
+      goals: false,
+      toolJobs: false,
+    },
+  },
+  {
     id: 'ihow-memory',
-    name: 'dsh-ihow-memory',
+    name: path.join(profileDir, 'src/mcp-ihow.mjs'),
     config: {
       home: memoryHome,
       memoryRoot: path.join(memoryHome, 'memory'),
       stateRoot,
       workspace,
+      space: 'main',
       failOnStartupError: true,
     },
   },
@@ -76,7 +96,7 @@ async function runHostSession(name, callback) {
       if (result.isError) throw new Error(`${name}: ${result.error?.message || toolName} failed`);
       return result.value.structuredContent;
     };
-    return await callback(execute);
+    return await callback(execute, ctx);
   } finally {
     await ctx.fiber.dispose();
   }
@@ -98,6 +118,49 @@ try {
     assert.equal(written.status, 'promoted');
     memoryPath = written.path;
   });
+
+  await runHostSession('lifecycle-startup', async (_call, ctx) => {
+    startupSessionId = randomUUID();
+    const handle = await ctx.agents.create({
+      sessionId: startupSessionId,
+      meta: { cwd: workspace },
+      agentOptions: { provider: 'smoke', model: 'smoke' },
+    });
+    await handle.dispose();
+  });
+
+  await runHostSession('lifecycle-resume', async (_call, ctx) => {
+    resumedSessionId = randomUUID();
+    const injected = [];
+    const agent = {
+      id: resumedSessionId,
+      session: { header: { cwd: workspace } },
+      inject: (message) => injected.push(message),
+    };
+    await agentEvents(ctx, agent).serial('agent/session-start', { source: 'resume' });
+    sessionStartInjected = injected.some((message) => message.source?.form === 'recall');
+    assert.equal(sessionStartInjected, true, 'DSH session-start did not inject iHow Memory context');
+  });
+
+  const activationPath = path.join(memoryHome, 'memory', '_mcp', 'activation-ledger.ndjson');
+  const activationLedger = await readFile(activationPath, 'utf8');
+  const activationRows = activationLedger.trim().split('\n').map((line) => JSON.parse(line));
+  const dshRows = activationRows.filter((row) => row.runtime === 'dsh');
+  assert.ok(dshRows.some((row) => row.event === 'runtime-configured' && row.status === 'configured'));
+  assert.ok(dshRows.some((row) => row.event === 'hook-session-start' && row.status === 'observed-live-completed'));
+  assert.ok(dshRows.some((row) => row.event === 'hook-session-end' && row.status === 'observed-live-completed'));
+  assert.equal(activationLedger.includes(startupSessionId), false, 'activation ledger leaked the DSH startup session id');
+  assert.equal(activationLedger.includes(resumedSessionId), false, 'activation ledger leaked the DSH resumed session id');
+
+  const checkpointRoot = path.join(memoryHome, 'memory', '_mcp', 'checkpoints', 'artifacts');
+  for (const file of (await readdir(checkpointRoot)).filter((candidate) => candidate.endsWith('.json'))) {
+    const checkpoint = JSON.parse(await readFile(path.join(checkpointRoot, file), 'utf8'));
+    const sessionHash = checkpoint.session?.sessionIdHash;
+    if (typeof sessionHash === 'string' && sessionHash.length > 0 && checkpoint.trigger?.sourceEvent === 'DSH.AgentRegistry.dispose') {
+      sessionEndCheckpointCount += 1;
+    }
+  }
+  assert.equal(sessionEndCheckpointCount, 1, 'DSH disposal did not persist one session-end checkpoint');
 
   await runHostSession('recall', async (call) => {
     const searched = await call('memory.search', { query: marker, limit: 5 });
@@ -132,12 +195,19 @@ try {
     host: 'DeepSeek Harness',
     flow: [
       'write through DSH tools in host A',
+      'create and dispose a real DSH agent with session-start context injection',
+      'verify hashed lifecycle activation evidence and one partial session-end checkpoint',
       'recall after disposing and rebuilding the host',
       'forget through DSH tools in a new host',
       'confirm hidden after another host rebuild',
       'remember in a new host',
       'confirm restored after another host rebuild',
     ],
+    lifecycle: {
+      sessionStartInjected,
+      sessionEndCheckpoints: sessionEndCheckpointCount,
+      activationEvidence: 'configured + session-start completed + session-end completed',
+    },
     marker,
     memoryPath,
   };
@@ -146,5 +216,16 @@ try {
   }
   console.log(JSON.stringify(receipt, null, 2));
 } finally {
-  await rm(root, { recursive: true, force: true });
+  let lastError;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      await rm(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 25 });
+      lastError = undefined;
+      break;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  if (lastError) throw lastError;
 }
