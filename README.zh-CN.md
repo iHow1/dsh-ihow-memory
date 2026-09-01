@@ -6,7 +6,7 @@
 
 ## 状态
 
-Alpha。当前候选面向 DSH 官方 `0.1.1-rc.2` 生命周期与 iHow Memory Core `0.1.0-alpha.33`。
+Alpha。当前候选面向 DSH 官方 `0.1.1-rc.2` 生命周期与 iHow Memory Core `0.1.0-alpha.34`。
 
 ## Core 与插件的版本关系
 
