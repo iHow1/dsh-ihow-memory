@@ -76,7 +76,7 @@ test('launcher exposes the iHow Memory MCP contract without a global install', a
       },
     });
     assert.equal(initialized.result.serverInfo.name, 'ihow-memory-core');
-    assert.equal(initialized.result.serverInfo.version, '0.1.0-alpha.33');
+    assert.equal(initialized.result.serverInfo.version, '0.1.0-alpha.34');
 
     const listed = await client.request({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
     const names = new Set(listed.result.tools.map((tool) => tool.name));

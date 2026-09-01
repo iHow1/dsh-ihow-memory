@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 assert.equal(manifest.dsh?.bundle?.patch, './cordis.patch.yml');
-assert.equal(manifest.dependencies?.['ihow-memory'], '0.1.0-alpha.33');
+assert.equal(manifest.dependencies?.['ihow-memory'], '0.1.0-alpha.34');
 assert.equal(manifest.peerDependencies?.['@deepseek-ai/dsh-mcp-client'], '^0.1.1-rc.2');
 
 const packed = JSON.parse(execFileSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {

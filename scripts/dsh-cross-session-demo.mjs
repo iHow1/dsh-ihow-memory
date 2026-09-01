@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -27,11 +28,16 @@ const { agentEvents } = await import(pathToFileURL(path.join(
 )).href);
 const { boot } = await import(pathToFileURL(resolvedAppBootPath).href);
 const root = await mkdtemp(path.join(os.tmpdir(), 'dsh-ihow-host-demo-'));
+const originalHome = process.env.HOME;
+const hostHome = path.join(root, 'host-home');
 const memoryHome = path.join(root, 'memory-home');
 const stateRoot = path.join(root, 'state');
 const workspace = path.join(root, 'workspace');
+const foreignWorkspace = path.join(root, 'foreign-workspace');
 const configPath = path.join(root, 'cordis.yml');
 const marker = `DSH host cross-session marker ${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+const currentHandoffMarker = `CURRENT DSH project handoff ${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+const foreignHandoffMarker = `FOREIGN DSH project handoff ${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 let requestId = 0;
 let memoryPath;
 let startupSessionId;
@@ -39,7 +45,44 @@ let resumedSessionId;
 let sessionStartInjected = false;
 let sessionEndCheckpointCount = 0;
 
-await mkdir(workspace, { recursive: true });
+function runGit(cwd, ...args) {
+  execFileSync('git', args, { cwd, stdio: 'ignore' });
+}
+
+async function makeRepo(dir) {
+  await mkdir(dir, { recursive: true });
+  runGit(dir, 'init', '-q');
+  runGit(dir, 'config', 'user.email', 'host-smoke@example.invalid');
+  runGit(dir, 'config', 'user.name', 'DSH Host Smoke');
+  runGit(dir, 'config', 'commit.gpgsign', 'false');
+  await writeFile(path.join(dir, 'seed.txt'), 'seed\n');
+  runGit(dir, 'add', 'seed.txt');
+  runGit(dir, 'commit', '-qm', 'seed host smoke project');
+}
+
+function editedTranscript(repo, handoffMarker) {
+  const edit = { type: 'tool_use', name: 'Edit', input: { file_path: path.join(repo, 'seed.txt') } };
+  return [
+    { type: 'user', message: { content: 'continue the scoped host smoke' } },
+    { type: 'assistant', message: { content: [edit, { type: 'text', text: 'Edited the scoped smoke seed.' }] } },
+    { type: 'assistant', message: { content: [edit, { type: 'text', text: 'Verified the scoped smoke seed.' }] } },
+    { type: 'assistant', message: { content: [{ type: 'text', text: `Handoff: ${handoffMarker}. Continue only this project. `.repeat(4) }] } },
+  ].map((entry) => JSON.stringify(entry)).join('\n') + '\n';
+}
+
+async function seedTranscript(repo, sessionId, handoffMarker) {
+  const encoded = path.resolve(repo).replace(/[^A-Za-z0-9]/g, '-');
+  const dir = path.join(hostHome, '.claude', 'projects', encoded);
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, `${sessionId}.jsonl`), editedTranscript(repo, handoffMarker));
+}
+
+await makeRepo(workspace);
+await makeRepo(foreignWorkspace);
+await seedTranscript(workspace, 'current-project', currentHandoffMarker);
+await new Promise((resolve) => setTimeout(resolve, 25));
+await seedTranscript(foreignWorkspace, 'foreign-project', foreignHandoffMarker);
+process.env.HOME = hostHome;
 await writeFile(configPath, '[]\n');
 process.env.IHOW_CAPTURE_FLOOR = '0';
 
@@ -138,8 +181,15 @@ try {
       inject: (message) => injected.push(message),
     };
     await agentEvents(ctx, agent).serial('agent/session-start', { source: 'resume' });
-    sessionStartInjected = injected.some((message) => message.source?.form === 'recall');
-    assert.equal(sessionStartInjected, true, 'DSH session-start did not inject iHow Memory context');
+    const recalled = injected.find((message) => message.source?.form === 'recall');
+    const recalledText = recalled?.content
+      ?.filter((block) => block?.type === 'text' && typeof block.text === 'string')
+      .map((block) => block.text)
+      .join('\n') ?? '';
+    sessionStartInjected = Boolean(recalled);
+    assert.equal(sessionStartInjected, true, 'DSH session-start did not inject current-project context');
+    assert.match(recalledText, new RegExp(currentHandoffMarker), 'DSH session-start omitted the current-project handoff');
+    assert.doesNotMatch(recalledText, new RegExp(foreignHandoffMarker), 'DSH session-start injected a foreign-project handoff');
   });
 
   const activationPath = path.join(memoryHome, 'memory', '_mcp', 'activation-ledger.ndjson');
@@ -207,6 +257,7 @@ try {
       sessionStartInjected,
       sessionEndCheckpoints: sessionEndCheckpointCount,
       activationEvidence: 'configured + session-start completed + session-end completed',
+      projectScope: 'current-project injected; foreign-project excluded',
     },
     marker,
     memoryPath,
@@ -216,6 +267,8 @@ try {
   }
   console.log(JSON.stringify(receipt, null, 2));
 } finally {
+  if (originalHome === undefined) delete process.env.HOME;
+  else process.env.HOME = originalHome;
   let lastError;
   for (let attempt = 0; attempt < 20; attempt += 1) {
     try {

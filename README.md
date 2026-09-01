@@ -6,7 +6,7 @@ The package is a thin DSH bundle. It mounts DSH's MCP client and starts an exact
 
 ## Status
 
-Alpha. The current release candidate targets the official DSH `0.1.1-rc.2` lifecycle and iHow Memory Core `0.1.0-alpha.33`.
+Alpha. The current release candidate targets the official DSH `0.1.1-rc.2` lifecycle and iHow Memory Core `0.1.0-alpha.34`.
 
 ## Core and plugin lifecycle
 

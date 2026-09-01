@@ -15,6 +15,14 @@ function fakeContext() {
     logger: { warn: (message) => warnings.push(message) },
     agents: { get: () => undefined },
     on(name, listener) { listeners.set(name, listener); },
+    effect(install) {
+      const dispose = install();
+      effects.push(dispose);
+      return dispose;
+    },
+    async drainEffects() {
+      await Promise.all(effects.map((dispose) => dispose()));
+    },
   };
 }
 
@@ -141,7 +149,7 @@ test('DSH lifecycle captures one metadata-only checkpoint from compaction summar
     time: Date.parse('2026-08-25T12:00:00.000Z'),
     data: { shadowedRange: { start: 2, end: 9 } },
   });
-  await ctx.listeners.get('dispose')();
+  await ctx.drainEffects();
 
   assert.equal(captured.length, 1);
   assert.deepEqual(captured[0].contract.normalized, {
@@ -180,8 +188,8 @@ test('DSH lifecycle injects session-start handoff and records shutdown events', 
   assert.equal(injected.length, 1);
   assert.match(injected[0].content[0].text, /handoff/);
 
-  await ctx.listeners.get('agent/disposed')({ agent });
-  await ctx.listeners.get('dispose')();
+  assert.equal(ctx.listeners.get('agent/disposed')({ agent }), undefined, 'the DSH event remains fire-and-forget');
+  await ctx.drainEffects();
   assert.deepEqual(calls, ['runtime.session_start', 'runtime.session_finalize', 'runtime.session_end']);
   assert.deepEqual(ctx.warnings, []);
 });

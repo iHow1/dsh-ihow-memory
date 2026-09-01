@@ -2,6 +2,17 @@
 
 All notable changes to `dsh-ihow-memory` are documented in this file.
 
+## [0.1.0-alpha.5] — 2026-09-01
+
+### Changed
+
+- Pin iHow Memory Core `0.1.0-alpha.34` exactly so automatic DSH session-start handoffs stay scoped to the current repository or directory. Explicit `memory.continue` still supports cross-project discovery.
+- Drain queued lifecycle and checkpoint writes through Cordis effect teardown so a real Host shutdown waits for `agent/disposed` finalization instead of depending on a nonexistent `dispose` event.
+
+### Notes
+
+- Alpha.5 supersedes Alpha.4 after live dogfood showed that Alpha.4/Core Alpha.33 could inject an unrelated project handoff during automatic startup. The DSH lifecycle surface is otherwise unchanged.
+
 ## [0.1.0-alpha.4] — 2026-08-26
 
 ### Added
